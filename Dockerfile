@@ -19,15 +19,18 @@ FROM mcr.microsoft.com/playwright:v1.49.1-jammy
 
 WORKDIR /app
 
-# Install only server deps in production. We skip the client entirely
-# because Vercel serves it from its own pipeline.
+# Install with dev deps so TypeScript is available for the build,
+# then prune dev deps after compile. Skipping --include=dev would
+# trigger `npx tsc` to download the wrong package (tsc@2.0.4 — the
+# bare-name tsc package on npm is NOT TypeScript).
 COPY package.json ./
 COPY server/package.json ./server/
-RUN npm install --workspace=server --omit=dev
+RUN npm install --workspace=server --include=dev
 
 COPY server ./server
 WORKDIR /app/server
-RUN npx tsc -p tsconfig.json
+RUN npx tsc -p tsconfig.json \
+  && cd /app && npm prune --workspace=server --omit=dev
 
 # Render injects PORT. Default 8080 for local docker.
 ENV PORT=8080 \
