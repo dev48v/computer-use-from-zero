@@ -32,6 +32,10 @@ WORKDIR /app/server
 RUN npx tsc -p tsconfig.json \
   && cd /app && npm prune --workspace=server --omit=dev
 
+# Create runs dir + chown to pwuser BEFORE switching user. Without
+# this, the agent's mkdir/writeFile fails with EACCES at request time.
+RUN mkdir -p /app/server/runs && chown -R pwuser:pwuser /app/server/runs
+
 # Render injects PORT. Default 8080 for local docker.
 ENV PORT=8080 \
     NODE_ENV=production
