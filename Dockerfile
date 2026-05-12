@@ -15,7 +15,7 @@
 # free tier (512 MB) is tight but workable for a few concurrent
 # screenshots. If you see OOMs in production, switch to a paid plan
 # (1 GB+) — the architecture stays identical.
-FROM mcr.microsoft.com/playwright:v1.49.1-jammy
+FROM mcr.microsoft.com/playwright:v1.60.0-jammy
 
 WORKDIR /app
 
