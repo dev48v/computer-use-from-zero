@@ -1,0 +1,19 @@
+# Render Blueprint — one Docker web service for the agent.
+services:
+  - type: web
+    name: computer-use-from-zero
+    runtime: docker
+    plan: free
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: GEMINI_API_KEY
+        sync: false  # set manually in dashboard or via API; never commit
+      - key: GEMINI_MODEL
+        value: gemini-2.5-pro
+      - key: MAX_STEPS
+        value: 30

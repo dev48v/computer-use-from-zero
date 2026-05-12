@@ -1,0 +1,21 @@
+# Local dev stack — just the agent. No DB needed.
+#
+#   docker compose up -d           # start agent
+#   docker compose logs -f api     # watch agent runs
+#   docker compose down            # stop
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cuz-api
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL:-gemini-2.5-pro}
+      - PORT=8080
+      - MAX_STEPS=30
+    ports:
+      - '8080:8080'
+    volumes:
+      # Persist screenshot history across container restarts.
+      - ./runs:/app/server/runs

@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+**/build
+.git
+.github
+client
+runs
+.env
+.env.local
+*.log
+README.md
+LINKEDIN.md
+linkedin-image.html
+img
