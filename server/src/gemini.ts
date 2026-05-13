@@ -78,6 +78,23 @@ const getModel = (): GenerativeModel => {
   return model;
 };
 
+// Free-tier RPM caps on Gemini are strict (Flash = 5 RPM, Flash-Lite
+// = 15 RPM). Even a 2-step agent run can burst over the cap when
+// fired back-to-back. We retry on 429 using the server-provided
+// retryDelay (parsed from the error message), capped at 60s × 3 tries.
+const parseRetryDelaySeconds = (errMsg: string): number => {
+  // Error format: "Please retry in 34.321623881s." OR `"retryDelay":"34s"`.
+  // Both are present in the same payload — we match either.
+  const match = errMsg.match(/retry in ([\d.]+)s/i) ?? errMsg.match(/"retryDelay":"(\d+)s"/);
+  if (!match) return 15;
+  return Math.min(60, Math.ceil(Number(match[1])));
+};
+
+const isRateLimit = (err: unknown): boolean => {
+  const msg = (err as Error)?.message ?? '';
+  return msg.includes('429') || msg.toLowerCase().includes('quota');
+};
+
 export const planNextAction = async (
   goal: string,
   history: AgentStep[],
@@ -106,12 +123,27 @@ ${historySummary}
 
 What is the next single action?`;
 
-  const result = await getModel().generateContent([
+  const parts = [
     { text: prompt },
     { inlineData: { mimeType: 'image/png', data: screenshotBase64 } },
-  ]);
+  ];
 
-  const text = result.response.text();
-  const parsed = JSON.parse(text) as AgentAction;
-  return parsed;
+  // Up to 3 attempts. On 429, wait the server-suggested retryDelay.
+  // Anything else (5xx, network) re-throws on the first failure since
+  // those signal real problems and the agent loop should fail fast.
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const result = await getModel().generateContent(parts);
+      const text = result.response.text();
+      return JSON.parse(text) as AgentAction;
+    } catch (err) {
+      lastError = err;
+      if (!isRateLimit(err)) throw err;
+      const delaySec = parseRetryDelaySeconds((err as Error).message);
+      console.warn(`[gemini] 429 rate-limited, retrying in ${delaySec}s (attempt ${attempt + 1}/3)`);
+      await new Promise((r) => setTimeout(r, delaySec * 1000));
+    }
+  }
+  throw lastError;
 };
